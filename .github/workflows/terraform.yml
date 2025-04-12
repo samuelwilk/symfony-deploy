@@ -1,0 +1,36 @@
+name: Provision Oracle Cloud Infrastructure
+
+on:
+  workflow_dispatch:
+
+jobs:
+  provision:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -var-file="terraform.tfvars"
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+
+      - name: Trigger deployment
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-deployment
