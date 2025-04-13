@@ -2,7 +2,7 @@ name: Symfony CI/CD Zero-Downtime Deploy
 
 on:
   push:
-    branches: [main, staging]
+    branches: [main] # add more environment branches here
     tags:
       - 'v*'
       - 'release-*'
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [production, staging]
+        environment: [production] # also add additional environments here
     environment: ${{ matrix.environment }}
     if: github.ref_type == 'branch' || github.ref_type == 'tag'
 
