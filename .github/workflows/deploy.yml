@@ -1,8 +1,6 @@
 name: Symfony CI/CD Zero-Downtime Deploy
 
 on:
-  repository_dispatch:
-    types: [trigger-deployment]
   push:
     branches: [main, staging]
     tags:
@@ -14,31 +12,35 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [staging, production]
+        environment: [production, staging]
+    environment: ${{ matrix.environment }}
     if: github.ref_type == 'branch' || github.ref_type == 'tag'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets[format('{0}_SSH_KEY', matrix.environment | upper)] }}
-
-      - name: Deploy to Oracle Cloud (${{ matrix.environment }})
+      - name: Set up SSH and deploy to ${{ matrix.environment }}
         env:
-          HOST: ${{ secrets.SSH_HOST }}
-          USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
           APP_SECRET: ${{ secrets.APP_SECRET }}
           CADDY_MERCURE_JWT_SECRET: ${{ secrets.CADDY_MERCURE_JWT_SECRET }}
           SERVER_NAME: ${{ secrets.SERVER_NAME }}
           APP_ENV: ${{ matrix.environment }}
         run: |
-          ssh -o StrictHostKeyChecking=no $USER@$HOST <<EOF
+          echo ">>> Setting up SSH"
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          echo ">>> Connecting to $SSH_HOST and deploying $APP_ENV"
+          ssh $SSH_USER@$SSH_HOST <<'EOF'
             set -e
             export RELEASE_ID=release-$(date +%Y%m%d%H%M%S)
-            export RELEASE_DIR=/home/$USER/symfony-deploy/releases/\$RELEASE_ID
+            export RELEASE_DIR=/home/$USER/symfony-deploy/releases/$RELEASE_ID
             export CURRENT_LINK=/home/$USER/symfony-deploy/current
 
             echo ">>> Cloning new release to \$RELEASE_DIR"
@@ -47,14 +49,11 @@ jobs:
 
             echo ">>> Starting containers for \$RELEASE_ID"
             cd \$RELEASE_DIR
-
             APP_ENV=$APP_ENV \
             APP_SECRET=$APP_SECRET \
             CADDY_MERCURE_JWT_SECRET=$CADDY_MERCURE_JWT_SECRET \
             SERVER_NAME=$SERVER_NAME \
             docker compose -p \$RELEASE_ID -f compose.yaml -f compose.prod.yaml up -d --wait --build
 
-            # Post-deploy steps here...
             echo ">>> ✅ Deployment complete"
           EOF
-      
