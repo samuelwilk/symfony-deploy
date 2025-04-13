@@ -15,6 +15,13 @@ WORKDIR /app
 
 VOLUME /app/var/
 
+# Install system dependencies for pdo_pgsql
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+     libpq-dev \
+  && docker-php-ext-install pdo_pgsql \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # persistent / runtime deps
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
