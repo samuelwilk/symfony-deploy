@@ -28,45 +28,33 @@ jobs:
 
       - name: Deploy to Oracle Cloud (${{ matrix.environment }})
         env:
-          HOST: ${{ secrets[format('{0}_HOST', matrix.environment | upper)] }}
-          DEPLOY_BASE: ${{ secrets[format('{0}_DEPLOY_PATH', matrix.environment | upper)] }}
-          REPO: ${{ github.repository }}
-          REF: ${{ github.ref_name }}
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+          CADDY_MERCURE_JWT_SECRET: ${{ secrets.CADDY_MERCURE_JWT_SECRET }}
+          SERVER_NAME: ${{ secrets.SERVER_NAME }}
+          APP_ENV: ${{ matrix.environment }}
         run: |
-          ssh -o StrictHostKeyChecking=no opc@$HOST << 'EOF'
+          ssh -o StrictHostKeyChecking=no $USER@$HOST <<EOF
             set -e
             export RELEASE_ID=release-$(date +%Y%m%d%H%M%S)
-            export RELEASE_DIR=$DEPLOY_BASE/releases/$RELEASE_ID
-            export CURRENT_LINK=$DEPLOY_BASE/current
+            export RELEASE_DIR=/home/$USER/symfony-deploy/releases/\$RELEASE_ID
+            export CURRENT_LINK=/home/$USER/symfony-deploy/current
 
-            echo ">>> Cloning new release to $RELEASE_DIR"
-            mkdir -p $RELEASE_DIR
-            git clone --depth=1 --branch $REF https://github.com/$REPO $RELEASE_DIR
+            echo ">>> Cloning new release to \$RELEASE_DIR"
+            mkdir -p \$RELEASE_DIR
+            git clone --depth=1 --branch ${{ github.ref_name }} https://github.com/${{ github.repository }} \$RELEASE_DIR
 
-            echo ">>> Starting containers for $RELEASE_ID"
-            cd $RELEASE_DIR
-            docker compose -p $RELEASE_ID up -d --build
+            echo ">>> Starting containers for \$RELEASE_ID"
+            cd \$RELEASE_DIR
 
-            echo ">>> Running Symfony post-deploy tasks"
-            docker compose -p $RELEASE_ID exec -T php bash -c "
-              set -e
-              echo '${{ secrets[format('{0}_SYMFONY_DECRYPTION_KEY', matrix.environment | upper)] }}' > config/secrets/${{ matrix.environment }}/.env.${{ matrix.environment }}.key
-              php bin/console secrets:decrypt-to-local --force --env=${{ matrix.environment }}
-              composer install --no-interaction --prefer-dist --optimize-autoloader
-              php bin/console doctrine:migrations:migrate --no-interaction
-              php bin/console cache:clear
-              php bin/console cache:warmup
-              php bin/console assets:install public
-              chown -R www-data:www-data var vendor
-            "
+            APP_ENV=$APP_ENV \
+            APP_SECRET=$APP_SECRET \
+            CADDY_MERCURE_JWT_SECRET=$CADDY_MERCURE_JWT_SECRET \
+            SERVER_NAME=$SERVER_NAME \
+            docker compose -p \$RELEASE_ID -f compose.yaml -f compose.prod.yaml up -d --wait --build
 
-            echo ">>> Swapping current release"
-            ln -sfn $RELEASE_DIR $CURRENT_LINK
-            sudo systemctl reload nginx
-
-            echo ">>> Cleaning old releases"
-            cd $DEPLOY_BASE/releases
-            ls -1t | tail -n +4 | xargs rm -rf
-
-            echo ">>> ✅ Deployment completed: $RELEASE_ID"
+            # Post-deploy steps here...
+            echo ">>> ✅ Deployment complete"
           EOF
+      
