@@ -89,18 +89,37 @@ jobs:
 
             echo ">>> Cleaning up old releases (keep last 3)"
             cd \$BASE_PATH/releases
-
-            # Determine real path the symlink points to
-            CURRENT_TARGET=\$(readlink \$CURRENT_LINK)
-              
-            # Keep the current target + the 2 most recent *other* releases
-            RELEASES=\$(ls -1t | grep -v \$(basename \$CURRENT_TARGET) | head -n -2 || true)
-              
-            for rel in \$RELEASES; do
-              echo "Removing old release: \$rel"
-              rm -rf "\$rel"
+  
+            CURRENT_TARGET=\$(readlink -f \$CURRENT_LINK)
+            
+            KEEP=3
+            INDEX=0
+            
+            ls -1t | while read rel; do
+              ABS_PATH=\$(readlink -f "\$rel")
+            
+              # Skip if this is the current release
+              if [ "\$ABS_PATH" = "\$CURRENT_TARGET" ]; then
+                echo "⏭️  Skipping current release: \$rel"
+                continue
+              fi
+            
+              # Extra safety: skip any folder that contains 'current' in the name (just in case)
+              if [[ "\$rel" == *current* ]]; then
+                echo "⚠️  Skipping suspicious entry with 'current' in name: \$rel"
+                continue
+              fi
+            
+              INDEX=\$((INDEX + 1))
+            
+              if [ "\$INDEX" -gt "\$KEEP" ]; then
+                echo "🗑️  Removing old release: \$rel"
+                rm -rf "\$rel"
+              else
+                echo "📦  Keeping recent release: \$rel"
+              fi
             done
-          
+  
             # Find and verify symlink target
             readlink /home/ubuntu/symfony-deploy/current
             
