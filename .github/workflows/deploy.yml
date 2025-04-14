@@ -40,9 +40,10 @@ jobs:
           ssh "$SSH_USER@$SSH_HOST" <<EOF
             set -e
             export RELEASE_ID=release-$(date +%Y%m%d%H%M%S)
-            export RELEASE_DIR=/home/$USER/symfony-deploy/releases/$RELEASE_ID
-            export CURRENT_LINK=/home/$USER/symfony-deploy/current
-          
+            export BASE_PATH=/home/$SSH_USER/symfony-deploy
+            export RELEASE_DIR=\$BASE_PATH/releases/\$RELEASE_ID
+            export CURRENT_LINK=\$BASE_PATH/current
+
             echo ">>> Cloning new release to \$RELEASE_DIR"
             mkdir -p \$RELEASE_DIR
             git clone --depth=1 --branch ${{ github.ref_name }} https://github.com/${{ github.repository }} \$RELEASE_DIR
