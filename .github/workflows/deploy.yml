@@ -44,7 +44,6 @@ jobs:
             export RELEASE_ID=release-\$(date +%Y%m%d%H%M%S)
             export RELEASE_DIR=\$BASE_PATH/releases/\$RELEASE_ID
             export CURRENT_LINK=\$BASE_PATH/current
-            export PROXY_NAME=symfony-deploy-proxy
 
             echo ">>> Cloning repo to \$RELEASE_DIR"
             mkdir -p \$RELEASE_DIR
@@ -74,7 +73,6 @@ jobs:
 
             echo ">>> Swapping in new release"
             ln -sfn \$RELEASE_DIR \$CURRENT_LINK
-            docker restart \$PROXY_NAME
 
             echo ">>> Cleaning up old releases (keep last 3)"
             cd \$BASE_PATH/releases

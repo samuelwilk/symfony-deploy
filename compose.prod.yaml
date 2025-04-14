@@ -6,8 +6,16 @@ services:
       target: frankenphp_prod
     environment:
       APP_ENV: ${APP_ENV:-prod}
-      SERVER_NAME: ${SERVER_NAME}
       APP_SECRET: ${APP_SECRET}
+      SERVER_NAME: ${SERVER_NAME}
       MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
       CADDY_MERCURE_JWT_SECRET: ${CADDY_MERCURE_JWT_SECRET}
+    volumes:
+      # Mounted via deploy script — symlink points to actual release dir
+      - ./current:/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
