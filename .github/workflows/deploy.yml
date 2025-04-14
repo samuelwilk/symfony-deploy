@@ -30,7 +30,7 @@ jobs:
           SERVER_NAME: ${{ secrets.SERVER_NAME }}
           APP_ENV: ${{ matrix.environment }}
         run: |
-          echo ">>> Starting deployment: \$RELEASE_ID"
+          echo ">>> Starting deployment: $RELEASE_ID"
 
           echo ">>> Setting up SSH"
           mkdir -p ~/.ssh
@@ -89,8 +89,25 @@ jobs:
 
             echo ">>> Cleaning up old releases (keep last 3)"
             cd \$BASE_PATH/releases
-            ls -1t | tail -n +4 | xargs -r rm -rf
+
+            # Determine real path the symlink points to
+            CURRENT_TARGET=\$(readlink \$CURRENT_LINK)
+              
+            # Keep the current target + the 2 most recent *other* releases
+            RELEASES=\$(ls -1t | grep -v \$(basename \$CURRENT_TARGET) | head -n -2 || true)
+              
+            for rel in \$RELEASES; do
+              echo "Removing old release: \$rel"
+              rm -rf "\$rel"
+            done
           
+            # Find and verify symlink target
+            readlink /home/ubuntu/symfony-deploy/current
+            
+            # Remove all old releases except the symlink target
+            cd /home/ubuntu/symfony-deploy/releases
+            ls -1t | grep -v $(basename $(readlink ../current)) | xargs -r sudo rm -rf
+  
             echo ">>> Disk space after cleanup"
             df -h /
 
