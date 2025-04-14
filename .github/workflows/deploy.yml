@@ -30,6 +30,8 @@ jobs:
           SERVER_NAME: ${{ secrets.SERVER_NAME }}
           APP_ENV: ${{ matrix.environment }}
         run: |
+          echo ">>> Starting deployment: \$RELEASE_ID"
+
           echo ">>> Setting up SSH"
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
@@ -44,6 +46,8 @@ jobs:
             export RELEASE_ID=release-\$(date +%Y%m%d%H%M%S)
             export RELEASE_DIR=\$BASE_PATH/releases/\$RELEASE_ID
             export CURRENT_LINK=\$BASE_PATH/current
+          
+            mkdir -p \$BASE_PATH/releases
 
             echo ">>> Cloning repo to \$RELEASE_DIR"
             mkdir -p \$RELEASE_DIR
@@ -73,10 +77,22 @@ jobs:
 
             echo ">>> Swapping in new release"
             ln -sfn \$RELEASE_DIR \$CURRENT_LINK
+          
+            echo ">>> Stopping old release containers"
+            docker ps --format '{{.Names}}' \
+            | grep release- \
+            | grep -v \$RELEASE_ID \
+            | xargs -r docker stop
+            
+            echo ">>> Pruning stopped containers"
+            docker container prune -f || true
 
             echo ">>> Cleaning up old releases (keep last 3)"
             cd \$BASE_PATH/releases
             ls -1t | tail -n +4 | xargs -r rm -rf
+          
+            echo ">>> Disk space after cleanup"
+            df -h /
 
             echo "✅ Deployment completed: \$RELEASE_ID"
           EOF
