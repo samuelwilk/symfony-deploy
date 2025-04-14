@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: caddy:2.7.6
+    image: dunglas/frankenphp
     container_name: symfony-deploy-proxy
     restart: unless-stopped
     ports:
@@ -8,6 +8,7 @@ services:
       - "443:443"
     volumes:
       - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile
+      - ./current/public:/srv
       - caddy_data:/data
       - caddy_config:/config
     networks:

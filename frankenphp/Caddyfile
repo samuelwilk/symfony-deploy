@@ -1,16 +1,5 @@
 {
 	{$CADDY_GLOBAL_OPTIONS}
-
-	frankenphp {
-		{$FRANKENPHP_CONFIG}
-
-		worker {
-			# We serve the index.php inside the symlinked "current" directory
-			file /app/public/index.php
-			env APP_RUNTIME Runtime\FrankenPhpSymfony\Runtime
-			{$FRANKENPHP_WORKER_CONFIG}
-		}
-	}
 }
 
 {$CADDY_EXTRA_CONFIG}
