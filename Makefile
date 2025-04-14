@@ -31,6 +31,11 @@ down:
 	@echo "🧹 Stopping and removing containers, volumes, and network..."
 	$(COMPOSE) down -v --remove-orphans
 
+## 🌐 Start the proxy container (Caddy-based)
+proxy:
+	@echo "🌐 Starting proxy (Caddy) container..."
+	docker compose -f docker-compose.proxy.yaml up -d --wait
+
 ## ♻️ Full restart
 restart: down build up
 

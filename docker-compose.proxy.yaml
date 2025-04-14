@@ -1,12 +1,28 @@
 services:
   proxy:
-    image: caddy:2
+    image: caddy:2.7.6
     container_name: symfony-deploy-proxy
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - ./current:/srv
-    working_dir: /srv
+      - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  default:
+    name: symfony-deploy_default
+    external: true
