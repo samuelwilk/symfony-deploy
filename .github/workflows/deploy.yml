@@ -2,7 +2,7 @@ name: Symfony CI/CD Zero-Downtime Deploy
 
 on:
   push:
-    branches: [main] # add more environment branches here
+    branches: [main] # Add more env branches here
     tags:
       - 'v*'
       - 'release-*'
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [production] # also add additional environments here
+        environment: [production]
     environment: ${{ matrix.environment }}
     if: github.ref_type == 'branch' || github.ref_type == 'tag'
 
@@ -37,22 +37,48 @@ jobs:
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
           echo ">>> Connecting to $SSH_HOST and deploying $APP_ENV"
-          ssh "$SSH_USER@$SSH_HOST" <<EOF
-            set -e
-            export RELEASE_ID=release-$(date +%Y%m%d%H%M%S)
+          ssh "$SSH_USER@$SSH_HOST" bash <<EOF
+            set -euo pipefail
+
             export BASE_PATH=/home/$SSH_USER/symfony-deploy
+            export RELEASE_ID=release-\$(date +%Y%m%d%H%M%S)
             export RELEASE_DIR=\$BASE_PATH/releases/\$RELEASE_ID
             export CURRENT_LINK=\$BASE_PATH/current
+            export PROXY_NAME=symfony-deploy-proxy
 
-            echo ">>> Cloning new release to \$RELEASE_DIR"
+            echo ">>> Cloning repo to \$RELEASE_DIR"
             mkdir -p \$RELEASE_DIR
             git clone --depth=1 --branch ${{ github.ref_name }} https://github.com/${{ github.repository }} \$RELEASE_DIR
-          
-            echo ">>> Starting containers for \$RELEASE_ID"
+
+            echo ">>> Building new release"
             cd \$RELEASE_DIR
             APP_ENV=$APP_ENV \
             APP_SECRET=$APP_SECRET \
             CADDY_MERCURE_JWT_SECRET=$CADDY_MERCURE_JWT_SECRET \
             SERVER_NAME=$SERVER_NAME \
             docker compose -p \$RELEASE_ID -f compose.yaml -f compose.prod.yaml up -d --wait --build
+
+            echo ">>> Waiting for health check"
+            for i in {1..15}; do
+              STATUS=\$(docker inspect --format='{{.State.Health.Status}}' \${RELEASE_ID}-php-1 || echo "starting")
+              echo "Healthcheck status: \$STATUS"
+              if [ "\$STATUS" = "healthy" ]; then
+                break
+              elif [ "\$i" -eq 15 ]; then
+                echo "❌ Healthcheck failed after multiple attempts. Aborting release."
+                docker compose -p \$RELEASE_ID down
+                exit 1
+              fi
+              sleep 5
+            done
+
+            echo ">>> Swapping in new release"
+            ln -sfn \$RELEASE_DIR \$CURRENT_LINK
+            docker restart \$PROXY_NAME
+
+            echo ">>> Cleaning up old releases (keep last 3)"
+            cd \$BASE_PATH/releases
+            ls -1t | tail -n +4 | xargs -r rm -rf
+
+            echo "✅ Deployment completed: \$RELEASE_ID"
           EOF

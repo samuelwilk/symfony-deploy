@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  proxy:
+    image: dunglas/frankenphp:1-php8.3
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile
+      - ./current:/app:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
