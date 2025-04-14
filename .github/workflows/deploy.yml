@@ -120,13 +120,6 @@ jobs:
               fi
             done
   
-            # Find and verify symlink target
-            readlink /home/ubuntu/symfony-deploy/current
-            
-            # Remove all old releases except the symlink target
-            cd /home/ubuntu/symfony-deploy/releases
-            ls -1t | grep -v $(basename $(readlink ../current)) | xargs -r sudo rm -rf
-  
             echo ">>> Disk space after cleanup"
             df -h /
 
